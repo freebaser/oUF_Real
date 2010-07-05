@@ -1,0 +1,9 @@
+## Interface: 30300
+## Title: oUF_Real
+## Author: Freebaser
+## Version: 0.1
+## Notes: oUF layout.
+## Dependencies: oUF
+## OptionalDeps: oUF_Experience
+
+real.lua
