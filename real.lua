@@ -273,7 +273,7 @@ do
 			local color = DebuffTypeColor[dtype] or DebuffTypeColor.none
 			icon.bg:SetBackdropColor(color.r, color.g, color.b)
 		else
-			icon.bg:SetBackdropColor(0, 1, 0)
+			icon.bg:SetBackdropColor(0, 0, 0)
 		end
 		
 		icon.duration = duration
