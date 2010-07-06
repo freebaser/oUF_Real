@@ -16,14 +16,24 @@ local font = {
 local height, width = 3, 275
 local scale = 1.0
 
+local siValue = function(val)
+	if (val >= 1e6) then
+		return ("%.1fm"):format(val / 1e6)
+	elseif (val >= 1e3) then
+		return ("%.1fk"):format(val / 1e3)
+	else
+		return ("%d"):format(val)
+	end
+end
+
 local backdrop = {
 	bgFile = [=[Interface\ChatFrame\ChatFrameBackground]=],
-	insets = {top = -1.5, left = -1.5, bottom = -1.5, right = -1.5},
+	insets = {top = -1, left = -1, bottom = -1, right = -1},
 }
 
 local backbackdrop = {
 	bgFile = [=[Interface\ChatFrame\ChatFrameBackground]=],
-	insets = {top = -3, left = -3, bottom = -3, right = -3},
+	insets = {top = -1.5, left = -1.5, bottom = -1.5, right = -1.5},
 }
 
 local menu = function(self)
@@ -41,15 +51,40 @@ local menu = function(self)
 	end
 end
 
+local xp = function(self)
+	local unit = self.unit
+	
+	if UnitLevel('player') ~= MAX_PLAYER_LEVEL then
+		local min, max = UnitXP(unit), UnitXPMax(unit)
+		local per = math.floor(min/max*100+.5)
+			
+		self.xp:SetText(siValue(min).."/"..siValue(max).." - "..per.."%")
+	else
+		self.xp:SetText(nil)
+	end
+end
+
+local fader = function(self)
+	local unit = self.unit
+	
+	if(UnitAffectingCombat(unit)) or (UnitExists(unit..'target')) or (UnitHealth(unit) < UnitHealthMax(unit)) then
+		self:SetAlpha(1)
+	else
+		self:SetAlpha(0.25)
+	end
+end
+
 local fixStatusbar = function(bar)
 	bar:GetStatusBarTexture():SetHorizTile(false)
 	bar:GetStatusBarTexture():SetVertTile(false)
 end
 
 local updateHealth = function(health, unit, min, max)
-	local per = min / max
+	local per = math.floor(min/max*100+.5)
 	
-	if per < 0.2 then
+	health.hpper:SetText(per.."%")
+	
+	if per < 20 then
 		health.arrow:SetVertexColor(1,0,0)
 		health.hpper:SetTextColor(1,0,0)
 	else
@@ -66,6 +101,10 @@ local updateHealth = function(health, unit, min, max)
 end
 
 local updatePower = function(power, unit, min, max)
+	if UnitPower(unit) == 0 then
+		power.val:SetText(nil) return
+	end
+	
 	if unit == "target" or unit == "focus" then
 		power:SetValue(max - min)
 		power.arrow:SetPoint("TOP", power, "RIGHT", -(min / max * power:GetWidth()), -1)
@@ -82,16 +121,6 @@ end
 local fixTex2 = function(tex)
 	local ULx,ULy,LLx,LLy,URx,URy,LRx,LRy = tex:GetTexCoord()
 	tex:SetTexCoord(LLx,LLy,ULx,ULy,LRx,LRy,URx,URy)
-end
-
-local siValue = function(val)
-	if (val >= 1e6) then
-		return ("%.1fm"):format(val / 1e6)
-	elseif (val >= 1e3) then
-		return ("%.1fk"):format(val / 1e3)
-	else
-		return ("%d"):format(val)
-	end
 end
 
 local function hex(r, g, b)
@@ -113,8 +142,8 @@ local colors = setmetatable({
 		["POWER_TYPE_STEAM"] = {0.55,0.57,0.61},
 		["POWER_TYPE_PYRITE"] = {0.60,0.09,0.17},
 		["POWER_TYPE_HEAT"] = {0.55,0.57,0.61},
-      	["POWER_TYPE_OOZE"] = {0.75686281919479,1,0},
-      	["POWER_TYPE_BLOOD_POWER"] = {0.73725494556129,0,1},
+		["POWER_TYPE_OOZE"] = {0.75686281919479,1,0},
+		["POWER_TYPE_BLOOD_POWER"] = {0.73725494556129,0,1},
 	}, {__index = oUF.colors.power}),
 }, {__index = oUF.colors})
 
@@ -215,6 +244,8 @@ local auraIcon = function(auras, button)
 	local count = button.count
 	count:ClearAllPoints()
 	count:SetPoint("BOTTOMRIGHT", 3, -3)
+	count:SetFontObject(nil)
+	count:SetFont(font[4], 12, "OUTLINE")
 	
 	auras.disableCooldown = true
 
@@ -271,9 +302,9 @@ do
 		
 		if icon.debuff then
 			local color = DebuffTypeColor[dtype] or DebuffTypeColor.none
-			icon.bg:SetBackdropColor(color.r, color.g, color.b)
+			icon.bbg:SetBackdropColor(color.r, color.g, color.b)
 		else
-			icon.bg:SetBackdropColor(0, 0, 0)
+			icon.bbg:SetBackdropColor(0, 0, 0)
 		end
 		
 		icon.duration = duration
@@ -285,6 +316,18 @@ end
 
 local UnitSpecific = {
 	player = function(self)
+		self.xp = self:CreateFontString(nil, "OVERLAY")
+		self.xp:SetFont(font[4], 12)
+		self.xp:SetShadowOffset(1.25, -1.25)
+		self.xp:SetTextColor(0, .6, .9)
+		self.xp:SetPoint("TOPLEFT", self, "BOTTOMLEFT", 0, -18)
+		
+		if UnitLevel('player') ~= MAX_PLAYER_LEVEL then
+			self:RegisterEvent('PLAYER_XP_UPDATE', xp)
+			self:RegisterEvent('PLAYER_LEVEL_UP', xp)
+			xp(self)
+		end
+		
 		local buffs = CreateFrame("Frame", nil, self)
 		buffs:SetHeight(36)
 		buffs:SetWidth(36*12)
@@ -316,6 +359,11 @@ local UnitSpecific = {
 		debuffs.PostUpdateIcon = PostUpdateIcon
 		
 		--self.Debuffs = debuffs
+		self:RegisterEvent('PLAYER_REGEN_ENABLED', fader)
+		self:RegisterEvent('PLAYER_REGEN_DISABLED', fader)
+		self:RegisterEvent('UNIT_TARGET', fader)
+		self:RegisterEvent('UNIT_HEALTH', fader)
+		self:RegisterEvent('PLAYER_ENTERING_WORLD', fader)
 		
 		self:SetAttribute('initial-height', height+25)
 		self:SetAttribute('initial-width', width)
@@ -328,7 +376,7 @@ local UnitSpecific = {
 		auras:SetHeight(28)
 		auras:SetWidth(28*10)
 		auras.initialAnchor = "TOPLEFT"
-		auras.spacing = 8
+		auras.spacing = 5
 		auras.gap = true
 		auras.num = 40
 		auras["growth-x"] = "RIGHT"
@@ -358,7 +406,7 @@ local UnitSpecific = {
 		debuffs:SetHeight(28)
 		debuffs:SetWidth(28*10)
 		debuffs.initialAnchor = "TOPLEFT"
-		debuffs.spacing = 8
+		debuffs.spacing = 5
 		debuffs.num = 8
 		debuffs["growth-x"] = "RIGHT"
 		debuffs["growth-y"] = "DOWN"
@@ -389,6 +437,12 @@ local UnitSpecific = {
 	end,
 	
 	pet = function(self)
+	
+		self:RegisterEvent('PLAYER_REGEN_ENABLED', fader)
+		self:RegisterEvent('PLAYER_REGEN_DISABLED', fader)
+		self:RegisterEvent('UNIT_TARGET', fader)
+		self:RegisterEvent('UNIT_HEALTH', fader)
+		self:RegisterEvent('PLAYER_ENTERING_WORLD', fader)
 	
 		self:SetAttribute('initial-height', height+25)
 		self:SetAttribute('initial-width', width-50)
@@ -451,7 +505,6 @@ local func = function(self, unit)
 	hpper:SetFont(font[3], 18, "OUTLINE")
 	hpper:SetTextColor(1, 1, 1)
 	hpper:SetPoint("BOTTOM", hp.arrow, "TOP", 0, -5)
-	self:Tag(hpper, "[perhp]%")
 	
 	hp.hpper = hpper
 	
@@ -480,8 +533,6 @@ local func = function(self, unit)
 	end
 	pp:SetSize(width*0.8, height)
 	pp:SetStatusBarTexture(texture)
-	pp:SetBackdrop(backdrop)
-	pp:SetBackdropColor(0, 0, 0)
 	fixStatusbar(pp)
 	pp:SetStatusBarColor(1,1,1,0)
 	
@@ -491,6 +542,20 @@ local func = function(self, unit)
 	pp.arrow = hp:CreateTexture(nil, "OVERLAY")
 	pp.arrow:SetTexture(arrow[2])
 	fixTex2(pp.arrow)
+	
+	--Power value
+	local ppval = hp:CreateFontString(nil, "OVERLAY")
+	ppval:SetFont(font[3], 20)
+	ppval:SetShadowOffset(1.25, -1.25)
+	ppval:SetTextColor(1, 1, 1)
+	if unit == "target" or unit == "focus" then
+		ppval:SetPoint("TOPRIGHT", hp, "BOTTOMRIGHT", 0, -10)
+	else
+		ppval:SetPoint("TOPLEFT", hp, "BOTTOMLEFT", 0, -10)
+	end
+	self:Tag(ppval, "[real:pp]")
+	
+	pp.val = ppval
 	
 	self.Power = pp
 	
@@ -512,18 +577,6 @@ local func = function(self, unit)
 		name:SetPoint("RIGHT", hp.squ, "LEFT", 0, 2)
 	end
 	self:Tag(name, " [real:lvl] [real:color][real:name] ")
-	
-	--Power value
-	local ppval = hp:CreateFontString(nil, "OVERLAY")
-	ppval:SetFont(font[3], 20)
-	ppval:SetShadowOffset(1.25, -1.25)
-	ppval:SetTextColor(1, 1, 1)
-	if unit == "target" or unit == "focus" then
-		ppval:SetPoint("TOPRIGHT", hp, "BOTTOMRIGHT", 0, -10)
-	else
-		ppval:SetPoint("TOPLEFT", hp, "BOTTOMLEFT", 0, -10)
-	end
-	self:Tag(ppval, "[real:pp]")
 	
 	--Info
 	local info = hp:CreateFontString(nil, "OVERLAY")
