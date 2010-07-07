@@ -87,6 +87,12 @@ local updateHealth = function(health, unit, min, max)
 	if per < 20 then
 		health.arrow:SetVertexColor(1,0,0)
 		health.hpper:SetTextColor(1,0,0)
+	elseif per < 50 then
+		health.arrow:SetVertexColor(1,.3,0)
+		health.hpper:SetTextColor(1,.3,0)
+	elseif per < 70 then
+		health.arrow:SetVertexColor(1,.8,0)
+		health.hpper:SetTextColor(1,.8,0)
 	else
 		health.arrow:SetVertexColor(1,1,1)
 		health.hpper:SetTextColor(1,1,1)
@@ -342,23 +348,29 @@ local UnitSpecific = {
 		buffs.PostCreateIcon = auraIcon
 		buffs.PostUpdateIcon = PostUpdateIcon
 
-		--self.Buffs = buffs
+		self.Buffs = buffs
 		
 		local debuffs = CreateFrame("Frame", nil, self)
-		debuffs:SetHeight(36)
-		debuffs:SetWidth(36*12)
+		debuffs:SetHeight(48)
+		debuffs:SetWidth(48*12)
 		debuffs.initialAnchor = "TOPRIGHT"
 		debuffs.spacing = 5
-		debuffs.num = 40
+		debuffs.num = 6
 		debuffs["growth-x"] = "LEFT"
 		debuffs["growth-y"] = "DOWN"
-		debuffs:SetPoint("TOPRIGHT", UIParent, "TOPRIGHT", -10, -220)
-		debuffs.size = 36
+		debuffs:SetPoint("TOPRIGHT", self, "TOPLEFT", -10, -20)
+		debuffs.size = 48
 		
 		debuffs.PostCreateIcon = auraIcon
 		debuffs.PostUpdateIcon = PostUpdateIcon
 		
-		--self.Debuffs = debuffs
+		self.Debuffs = debuffs
+		
+		if self.Buffs then
+			BuffFrame:Hide()
+			TemporaryEnchantFrame:Hide()
+		end
+		
 		self:RegisterEvent('PLAYER_REGEN_ENABLED', fader)
 		self:RegisterEvent('PLAYER_REGEN_DISABLED', fader)
 		self:RegisterEvent('UNIT_TARGET', fader)
@@ -429,7 +441,7 @@ local UnitSpecific = {
 		name:SetTextColor(1, 1, 1)
 		name:SetJustifyH"LEFT"
 		name:SetPoint("LEFT", squ, "RIGHT", 0, 2)
-		self:Tag(name, " [real:lvl] [real:color][real:name] ")
+		self:Tag(name, " [real:lvl] [real:color][real:name] - [perhp]% ")
 	
 		self:SetAttribute('initial-height', height+25)
 		self:SetAttribute('initial-width', width)
